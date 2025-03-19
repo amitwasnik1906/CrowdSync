@@ -1,0 +1,87 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(uuid())
+  name          String
+  email         String   @unique
+  phone_number  String   @unique
+  password_hash String
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+  refreshToken  String?
+}
+
+model Bus {
+  id                      String   @id @default(uuid())
+  bus_number              String   @unique
+  capacity                Int
+  current_latitude        Float?
+  current_longitude       Float?
+  current_passenger_count Int?
+  created_at              DateTime @default(now())
+  updated_at              DateTime @updatedAt
+  routes                  Route[]
+}
+
+model Route {
+  id             String      @id @default(uuid())
+  route_name     String
+  start_location String
+  end_location   String
+  busId          String?
+  created_at     DateTime    @default(now())
+  updated_at     DateTime    @updatedAt
+  stops          Json
+  departure_time String
+  route_polyline String?
+  status         String      @default("inactive")
+  analytics      Analytics[]
+  bus            Bus?        @relation(fields: [busId], references: [id])
+}
+
+model Admin {
+  id            String   @id @default(uuid())
+  name          String
+  email         String   @unique
+  password_hash String
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+  refreshToken  String?
+}
+
+model Analytics {
+  id                  String   @id @default(uuid())
+  route_id            String
+  peak_hour           String
+  avg_passenger_count Int
+  crowd_percentage    Float
+  date_recorded       DateTime
+  max_passenger_count Int
+  route               Route    @relation(fields: [route_id], references: [id])
+}
+
+model Ad {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  image_url   String?
+  link        String?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  stop_name   String?
+}
+
+model Stop {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+}
