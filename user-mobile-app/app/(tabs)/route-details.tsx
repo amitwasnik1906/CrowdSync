@@ -50,7 +50,7 @@ export default function RouteDetails() {
   const fetchAdvertisements = async () => {
     try {
       setAdLoading(true)
-      const response = await fetch('https://adcet-backend.onrender.com/api/v1/user/ads')
+      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/ads`)
       const data = await response.json()
 
       if (data.ads && Array.isArray(data.ads)) {
