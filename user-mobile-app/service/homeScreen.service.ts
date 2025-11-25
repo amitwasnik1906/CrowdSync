@@ -20,11 +20,13 @@ export interface BusRoute {
 
 
 export class HomeScreenService {
-  private baseUrl = 'https://adcet-backend.onrender.com'; // Replace with your actual API base URL
+  private baseUrl = process.env.EXPO_PUBLIC_API_URL; // Replace with your actual API base URL
   // private baseUrl = 'https://192.168.0.117:5000';
 
   async getFilterRoutes(startLocation:string , endLocation:string){
      try {
+      console.log(this.baseUrl);
+      
       const response = await axios.post(`${this.baseUrl}/api/v1/user/route/filter`, {
         startLocation: startLocation,
         endLocation: endLocation

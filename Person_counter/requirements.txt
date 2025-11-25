@@ -1,11 +1,7 @@
-python
-schedule
 numpy
-argparse
 imutils
-dlib
 opencv-python
+dlib-bin
+schedule
+requests
 scipy
-
-
-python Run.py -p ./mobilenet_ssd/MobileNetSSD_deploy.prototxt -m ./mobilenet_ssd/MobileNetSSD_deploy.caffemodel

@@ -12,22 +12,28 @@ from itertools import zip_longest
 
 t0 = time.time()
 
+# Global variable to track last sent count
+last_sent_count = 0
+last_send_time = 0
+
 def send_post_request(count):
-    url = "http://10.40.1.102:5000/api/v1/bus/update/count"  # Replace with your server URL
+    url = "http://localhost:5000//api/v1/bus/update/count"  # Replace with your server URL
     data = {
-        "busId": "250e434f-1dd4-498c-b8fa-a584656df9fb",
+        "busId": "12f19d3f-2c9a-41a4-bed6-7795ba9f7920",
         "passenger_count": count
     }
     try:
         response = requests.put(url, json=data)
         if response.status_code == 200:
-            print("[INFO] POST request sent successfully.")
+            print(f"[INFO] POST request sent successfully. Passenger count: {count}")
         else:
             print(f"[ERROR] Failed to send POST request. Status code: {response.status_code}")
     except Exception as e:
         print(f"[ERROR] Exception occurred while sending POST request: {e}")
 
 def run():
+    global last_sent_count, last_send_time
+    
     # construct the argument parse and parse the arguments
     ap = argparse.ArgumentParser()
     ap.add_argument("-p", "--prototxt", required=False,
@@ -43,8 +49,6 @@ def run():
         help="minimum probability to filter weak detections")
     ap.add_argument("-s", "--skip-frames", type=int, default=30,
         help="# of skip frames between detections")
-    # ap.add_argument("--system-id", type=str, required=True,
-    #     help="unique ID for the system")
     args = vars(ap.parse_args())
 
     # initialize the list of class labels MobileNet SSD was trained to
@@ -98,6 +102,9 @@ def run():
     if config.Thread:
         vs = thread.ThreadingClass(config.url)
 
+    # Initialize last_send_time to current time
+    last_send_time = time.time()
+    
     # loop over frames from the video stream
     while True:
         # grab the next frame and handle if we are reading from either
@@ -250,11 +257,9 @@ def run():
                     elif direction > 0 and centroid[1] > H // 2:
                         totalDown += 1
                         empty1.append(totalDown)
-                        #print(empty1[-1])
                         x = []
                         # compute the sum of total people inside
                         x.append(len(empty1)-len(empty))
-                        #print("Total people inside:", x)
                         # if the people limit exceeds over threshold, send an email alert
                         if sum(x) >= config.Threshold:
                             cv2.putText(frame, "-ALERT: People limit exceeded-", (10, frame.shape[0] - 80),
@@ -276,6 +281,21 @@ def run():
                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
             cv2.circle(frame, (centroid[0], centroid[1]), 4, (255, 255, 255), -1)
 
+        # Calculate current passenger count (people inside)
+        current_count = len(empty1) - len(empty)
+        
+        # Check if 10 seconds have passed and count has changed
+        current_time = time.time()
+        if (current_time - last_send_time) >= 10:
+            if current_count != last_sent_count:
+                send_post_request(current_count)
+                last_sent_count = current_count
+                last_send_time = current_time
+                print(f"[INFO] Updated passenger count: {current_count}")
+            else:
+                print(f"[INFO] No change in passenger count: {current_count}")
+                last_send_time = current_time
+
         # construct a tuple of information we will be displaying on the
         info = [
         ("Exit", totalUp),
@@ -284,7 +304,7 @@ def run():
         ]
 
         info2 = [
-        ("Total people inside", x),
+        ("Total people inside", current_count),
         ]
 
         for (i, (k, v)) in enumerate(info):
@@ -298,7 +318,7 @@ def run():
         # Initiate a simple log to save data at end of the day
         if config.Log:
             datetimee = [datetime.datetime.now()]
-            d = [datetimee, empty1, empty, x]
+            d = [datetimee, empty1, empty, [current_count]]
             export_data = zip_longest(*d, fillvalue = '')
 
             with open('Log.csv', 'w', newline='') as myfile:
@@ -323,7 +343,7 @@ def run():
             # Automatic timer to stop the live stream. Set to 8 hours (28800s).
             t1 = time.time()
             num_seconds=(t1-t0)
-            if num_seconds > 16:
+            if num_seconds > 28800:  # Changed back to 8 hours
                 break
 
     # stop the timer and display FPS information
@@ -331,16 +351,14 @@ def run():
     print("[INFO] elapsed time: {:.2f}".format(fps.elapsed()))
     print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
 
-    # Send POST request with the totalDown count and system ID
-    send_post_request(totalDown)
+    # Send final POST request with the current count
+    send_post_request(current_count)
 
     # close any open windows
     cv2.destroyAllWindows()
 
-##learn more about different schedules here: https://pypi.org/project/schedule/
+# Run continuously without scheduler
 if config.Scheduler:
-    ##Runs for every 1 second
-    #schedule.every(1).seconds.do(run)
     ##Runs at every day (9:00 am). You can change it.
     schedule.every().day.at("9:00").do(run)
 

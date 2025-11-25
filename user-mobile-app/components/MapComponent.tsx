@@ -42,7 +42,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ routeDetails, onMapTouchSta
 
   const fetchBusDetails = async (busId: string) => {
     try {
-      const response = await fetch(`https://adcet-backend.onrender.com/api/v1/user/bus/${busId}`)
+      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/bus/${busId}`)
       if (!response.ok) {
         throw new Error("Network response was not ok")
       }

@@ -21,7 +21,7 @@ export default function StopInfoScreen() {
       }
 
       try {
-        const response = await axios.get(`https://adcet-backend.onrender.com/api/v1/user/stop-details/${stopName}`)
+        const response = await axios.get(`${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/stop-details/${stopName}`)
         setStopInfo(response.data.stops || { name: "Unknown Stop", description: "No information available." })
       } catch (err) {
         console.error("Error fetching stop details:", err)
