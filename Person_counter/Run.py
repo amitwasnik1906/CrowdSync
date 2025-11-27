@@ -9,6 +9,7 @@ import numpy as np
 import argparse, imutils
 import time, dlib, cv2, datetime
 from itertools import zip_longest
+from threading import Thread
 
 t0 = time.time()
 
@@ -16,23 +17,58 @@ t0 = time.time()
 last_sent_count = 0
 last_send_time = 0
 
-def send_post_request(count):
-    url = "http://localhost:5000//api/v1/bus/update/count"  # Replace with your server URL
-    data = {
-        "busId": "12f19d3f-2c9a-41a4-bed6-7795ba9f7920",
-        "passenger_count": count
-    }
+def fetch_initial_count():
+    """Fetch the current passenger count from the server to initialize"""
+    bus_id = "12f19d3f-2c9a-41a4-bed6-7795ba9f7920"
+    url = f"http://localhost:5000/api/v1/user/bus/{bus_id}"
+    
     try:
-        response = requests.put(url, json=data)
+        response = requests.get(url)
         if response.status_code == 200:
-            print(f"[INFO] POST request sent successfully. Passenger count: {count}")
+            data = response.json()
+            # Extract bus object from the response
+            bus = data.get('bus', {})
+            initial_count = bus.get('current_passenger_count', 0)
+            print(f"[INFO] Fetched initial passenger count from server: {initial_count}")
+            return initial_count
         else:
-            print(f"[ERROR] Failed to send POST request. Status code: {response.status_code}")
+            print(f"[WARNING] Failed to fetch initial count. Status code: {response.status_code}")
+            print("[INFO] Starting with count 0")
+            return 0
     except Exception as e:
-        print(f"[ERROR] Exception occurred while sending POST request: {e}")
+        print(f"[WARNING] Exception occurred while fetching initial count: {e}")
+        print("[INFO] Starting with count 0")
+        return 0
+
+def send_post_request(count):
+    """Send POST request in a separate thread to avoid blocking"""
+    def _send():
+        url = "http://localhost:5000/api/v1/bus/update/count"
+        data = {
+            "busId": "12f19d3f-2c9a-41a4-bed6-7795ba9f7920",
+            "passenger_count": count
+        }
+        try:
+            response = requests.put(url, json=data, timeout=5)
+            if response.status_code == 200:
+                print(f"[INFO] POST request sent successfully. Passenger count: {count}")
+            else:
+                print(f"[ERROR] Failed to send POST request. Status code: {response.status_code}")
+        except requests.exceptions.Timeout:
+            print(f"[ERROR] Request timeout while sending POST request")
+        except Exception as e:
+            print(f"[ERROR] Exception occurred while sending POST request: {e}")
+    
+    # Start the request in a separate thread
+    thread = Thread(target=_send)
+    thread.daemon = True  # Daemon thread will exit when main program exits
+    thread.start()
 
 def run():
     global last_sent_count, last_send_time
+    
+    # Fetch initial passenger count from server
+    initial_count = fetch_initial_count()
     
     # construct the argument parse and parse the arguments
     ap = argparse.ArgumentParser()
@@ -95,6 +131,14 @@ def run():
     x = []
     empty=[]
     empty1=[]
+    
+    # Initialize counts based on server data
+    # If initial_count is positive, it means people are already inside
+    if initial_count > 0:
+        # Set empty1 (entered) to match the initial count
+        empty1 = list(range(1, initial_count + 1))
+        totalDown = initial_count
+        print(f"[INFO] Initialized with {initial_count} people already inside the bus")
 
     # start the frames per second throughput estimator
     fps = FPS().start()
@@ -104,6 +148,9 @@ def run():
 
     # Initialize last_send_time to current time
     last_send_time = time.time()
+    
+    # Set the last_sent_count to the initial count from server
+    last_sent_count = initial_count
     
     # loop over frames from the video stream
     while True:
